@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AVoidLauncher</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1e1e1e;
+            color: #ffffff;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .title-bar {
+            height: 30px;
+            background-color: #2d2d2d;
+            -webkit-app-region: drag;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 10px;
+        }
+        .window-controls {
+            display: flex;
+            gap: 10px;
+            -webkit-app-region: no-drag;
+        }
+        .window-controls button {
+            background: none;
+            border: none;
+            color: #ffffff;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        .sidebar {
+            width: 200px;
+            background-color: #252526;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .sidebar button {
+            width: 100%;
+            padding: 10px;
+            background-color: #1e1e1e;
+            border: 1px solid #444;
+            color: #ffffff;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .reset-btn {
+            background: #ff4c4c;
+            font-weight: bold;
+        }
+        .reset-btn:hover {
+            background: #cc0000;
+        }
+        .main-area {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .apps-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 20px;
+            padding-right: 10px;
+            align-items: start;
+        }
+        .app-card {
+            width: 150px;
+            padding: 15px;
+            background-color: #252526;
+            border: 1px solid #444;
+            border-radius: 5px;
+            text-align: center;
+            cursor: pointer;
+        }
+        .app-card:hover {
+            background-color: #333;
+            border-color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="title-bar">
+        <h3>AVoidLauncher</h3>
+        <div class="window-controls">
+            <button id="minimize-btn">─</button>
+            <button id="close-btn">✕</button>
+        </div>
+    </div>
+    <div class="container">
+        <div class="sidebar">
+            <button id="add-app-btn">➕ Add App</button>
+            <button id="reset-database-btn" class="reset-btn">🗑 Reset Database</button>
+        </div>
+        <div class="main-area">
+            <div class="apps-container" id="apps-container"></div>
+        </div>
+    </div>
+
+    <script>
+        async function loadApps() {
+            try {
+                const appsContainer = document.getElementById('apps-container');
+                appsContainer.innerHTML = "";
+
+                const apps = await window.electron.loadApps();
+                apps.forEach(({ name, path }) => addAppCard(name, path));
+            } catch (error) {
+                console.error('Failed to load apps:', error);
+                alert('Failed to load apps. Please try again.');
+            }
+        }
+
+        function addAppCard(appName, appPath) {
+            const appCard = document.createElement('div');
+            appCard.className = 'app-card';
+            appCard.dataset.path = appPath;
+            appCard.textContent = appName;
+
+            appCard.addEventListener('click', () => window.electron.launchApp(appPath)); // Launch app on click
+
+            appCard.addEventListener('contextmenu', (event) => {
+                event.preventDefault();
+
+                // Create a custom context menu
+                const contextMenu = document.createElement('div');
+                contextMenu.style.position = 'absolute';
+                contextMenu.style.backgroundColor = '#252526';
+                contextMenu.style.border = '1px solid #444';
+                contextMenu.style.borderRadius = '5px';
+                contextMenu.style.padding = '10px';
+                contextMenu.style.zIndex = '1000';
+
+                // Add "Remove App" option
+                const removeOption = document.createElement('div');
+                removeOption.textContent = '❌ Remove App';
+                removeOption.style.cursor = 'pointer';
+                removeOption.style.marginBottom = '5px';
+                removeOption.addEventListener('click', () => {
+                    if (confirm(`❌ Remove "${appName}"?`)) {
+                        window.electron.removeApp(appPath);
+                    }
+                    contextMenu.remove();
+                });
+
+                // Add "Open EXE Folder" option
+                const openFolderOption = document.createElement('div');
+                openFolderOption.textContent = '📂 Open EXE Folder';
+                openFolderOption.style.cursor = 'pointer';
+                openFolderOption.addEventListener('click', () => {
+                    window.electron.openExeFolder(appPath); // Open the folder containing the EXE file
+                    contextMenu.remove();
+                });
+
+                // Append options to the context menu
+                contextMenu.appendChild(removeOption);
+                contextMenu.appendChild(openFolderOption);
+
+                // Position the context menu at the mouse click location
+                contextMenu.style.left = `${event.clientX}px`;
+                contextMenu.style.top = `${event.clientY}px`;
+
+                // Add the context menu to the body
+                document.body.appendChild(contextMenu);
+
+                // Remove the context menu when clicking outside of it
+                document.addEventListener('click', () => {
+                    contextMenu.remove();
+                }, { once: true });
+            });
+
+            document.getElementById('apps-container').appendChild(appCard);
+        }
+
+        document.getElementById('add-app-btn').addEventListener('click', async () => {
+            const filePath = await window.electron.selectApp();
+            if (filePath) {
+                const appName = await window.electron.promptForAppName();
+                if (appName) {
+                    window.electron.saveApp(appName, filePath);
+                }
+            }
+        });
+
+        document.getElementById('reset-database-btn').addEventListener('click', () => {
+            if (confirm("⚠ Reset database? This will delete all saved apps.")) {
+                window.electron.resetDatabase();
+            }
+        });
+
+        window.electron.receive('database-reset', () => {
+            document.getElementById('apps-container').innerHTML = "";
+            alert("✅ Database has been reset!");
+        });
+
+        window.electron.receive('app-removed', (appPath) => {
+            document.querySelectorAll('.app-card').forEach(card => {
+                if (card.dataset.path === appPath) {
+                    card.remove();
+                }
+            });
+        });
+
+        window.electron.receive('app-added', ({ name, path }) => {
+            addAppCard(name, path);
+        });
+
+        document.getElementById('minimize-btn').addEventListener('click', () => window.electron.send('minimize-window'));
+        document.getElementById('close-btn').addEventListener('click', () => window.electron.send('close-window'));
+
+        loadApps();
+    </script>
+</body>
+</html>

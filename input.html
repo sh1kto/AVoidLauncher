@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enter App Name</title>
+    <style>
+        body {
+            background-color: #1e1e1e;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        input {
+            width: 80%;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+        }
+        button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h3>Enter App Name</h3>
+    <input id="app-name" type="text" placeholder="App Name">
+    <br>
+    <button id="save-btn">Save</button>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        document.getElementById('save-btn').addEventListener('click', () => {
+            const name = document.getElementById('app-name').value.trim();
+            if (name) {
+                ipcRenderer.send('app-name-entered', name); // Send the app name to the main process
+            } else {
+                alert('App name cannot be empty.'); // Show an error if the name is empty
+            }
+        });
+
+        // Handle Enter key press
+        document.getElementById('app-name').addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                document.getElementById('save-btn').click();
+            }
+        });
+
+        // Close the window if the main process sends a close event
+        ipcRenderer.on('close-window', () => {
+            window.close();
+        });
+    </script>
+</body>
+</html>
