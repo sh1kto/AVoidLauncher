@@ -1,0 +1,17 @@
+# Node.js dependencies
+node_modules/
+
+# Build output
+out/
+
+# Logs
+*.log
+
+# Environment files (if any)
+.env
+
+# IDE configuration files
+.vscode/
+
+# Package lock file (optional, if you don't want to upload it)
+package-lock.json
